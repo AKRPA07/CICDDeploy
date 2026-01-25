@@ -1,0 +1,6 @@
+{
+  "Name": "CICDDeploy",
+  "ProjectType": "Process",
+  "Description": "To Test the deployment",
+  "MainFile": "Main.xaml"
+}
