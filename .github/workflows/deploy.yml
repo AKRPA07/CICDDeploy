@@ -27,11 +27,22 @@ jobs:
       - name: Build UiPath NuGet Package
         shell: pwsh
         run: |
-          .\Scripts\UiPathPack.ps1 -project_json .\project.json -destination_folder .\package
+          # Matches your script's param names: -project_path and -destination_folder
+          .\Scripts\UiPathPack.ps1 `
+            -project_path ".\project.json" `
+            -destination_folder ".\package"
 
       - name: Publish Package to DEV Orchestrator
         shell: pwsh
         env:
-          USER_KEY: ${{ secrets.ORCH_USER_KEY_Dev }}
+          USER_KEY_SECRET: ${{ secrets.ORCH_USER_KEY_Dev }}
         run: |
-          .\Scripts\UiPathDeploy.ps1 -PackagePath .\package -OrchURL ${{ env.ORCH_URL }} -Tenant ${{ env.ORCH_TENANT }} -UserKey $env:USER_KEY
+          # Mandatory Positional Args: <packages_path> <orchestrator_url> <orchestrator_tenant>
+          # Named Args: -UserKey <auth_token> -account_name <account_name>
+          .\Scripts\UiPathDeploy.ps1 `
+            ".\package" `
+            "${{ env.ORCH_URL }}" `
+            "${{ env.ORCH_TENANT }}" `
+            -UserKey "$env:USER_KEY_SECRET" `
+            -account_name "${{ env.ORCH_ACC_NAME }}" `
+            -folder_organization_unit "${{ env.ORCH_FOLDER }}"
