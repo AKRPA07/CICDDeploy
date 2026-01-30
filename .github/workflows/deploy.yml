@@ -27,24 +27,18 @@ jobs:
       - name: Build UiPath NuGet Package
         shell: pwsh
         run: |
-          # Positional 0: project path
-          # Named: destination and auto-versioning switch
-          .\Scripts\UiPathPack.ps1
-            .\project.json" `
-            -destination_folder ".\package
-            -autoVersion
+          # The path ".\project.json" is now passed correctly as the first positional argument
+          .\Scripts\UiPathPack.ps1 ".\project.json" -destination_folder ".\package" -autoVersion
 
       - name: Publish Package to DEV Orchestrator
         shell: pwsh
         env:
           UIPATH_USER_KEY: ${{ secrets.ORCH_USER_KEY_Dev }}
         run: |
-          # Mandatory Position 0: packages_path
-          # Mandatory Position 1: orchestrator_url
-          # Mandatory Position 2: orchestrator_tenant
-          # Named: UserKey, account_name, and folder
-          .\Scripts\UiPathDeploy.ps1 
-            .\package" `
+          # Mandatory Positional Args: <packages_path> <orchestrator_url> <orchestrator_tenant>
+          # Named Args: -UserKey, -account_name, and -folder_organization_unit
+          .\Scripts\UiPathDeploy.ps1 `
+            ".\package" `
             "${{ env.ORCH_URL }}" `
             "${{ env.ORCH_TENANT }}" `
             -UserKey "$env:UIPATH_USER_KEY" `
