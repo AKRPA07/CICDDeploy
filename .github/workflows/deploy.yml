@@ -5,9 +5,8 @@ on:
     branches:
       - NewProcess_DevBranch
 
-# Here the environment variable is declared in workflow level
+# Workflow-level environment variables
 env:
-  # Replace with your Orchestrator Values
   PROJECT_NAME: CICDDeploy
   ORCH_FOLDER: NewProcess
   ORCH_URL: https://cloud.uipath.com/
@@ -22,63 +21,75 @@ jobs:
   print-details:
     runs-on: ubuntu-latest
     steps:
-      - name: echo-default-env-variables
+      - name: Print GitHub environment details
         run: |
-          echo "Home: ${HOME}"
-          echo "GITHUB_WORKFLOW: ${GITHUB_WORKFLOW}"
-          echo "GITHUB_ACTIONS: ${GITHUB_ACTIONS}"
-          echo "GITHUB_ACTOR: ${GITHUB_ACTOR}"
-          echo "GITHUB_REPOSITORY: ${GITHUB_REPOSITORY}"
-          echo "GITHUB_EVENT_NAME: ${GITHUB_EVENT_NAME}"
-          echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
-          echo "GITHUB_SHA: ${GITHUB_SHA}"
-          echo "GITHUB_REF: ${GITHUB_REF}"
+          echo "HOME: $HOME"
+          echo "GITHUB_WORKFLOW: $GITHUB_WORKFLOW"
+          echo "GITHUB_ACTIONS: $GITHUB_ACTIONS"
+          echo "GITHUB_ACTOR: $GITHUB_ACTOR"
+          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+          echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo "GITHUB_SHA: $GITHUB_SHA"
+          echo "GITHUB_REF: $GITHUB_REF"
 
   cleaner:
     runs-on: ubuntu-latest
     steps:
-      - name: Runner workspace path
+      - name: Clean workspace
         run: |
-          echo "Cleaning up previous run"
-          rm -rf "${{ github.workspace }}"
+          echo "Cleaning workspace"
+          rm -rf *
 
   build-uipath-nuget-package:
-    # You should be able to run on windows 2019 or windows latest
     needs: cleaner
     runs-on: windows-latest
-    steps:
-      - name: Check out repository code
-        uses: actions/checkout@v2
 
-      - name: Build Nuget Package
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install .NET LTS (UiPath compatible)
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Build UiPath NuGet Package
         shell: pwsh
         run: |
-          ${{ github.workspace }}\Scripts\UiPathPack.ps1 `
-          ${{ github.workspace }}\project.json `
-          -destination_folder ${{ github.workspace }}\package
+          .\Scripts\UiPathPack.ps1 `
+          .\project.json `
+          -destination_folder .\package
 
-      - name: Upload UiPath Artifacts
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Artifacts
           path: |
-            package/*.*
-            scripts/*.ps1
+            package
+            Scripts
 
   publish-uipath-nuget-package:
     needs: build-uipath-nuget-package
     runs-on: windows-latest
+
     steps:
-      - name: Download UiPath Artifacts
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
           name: Artifacts
 
-      - name: Publish Nuget Package to DEV
+      - name: Setup .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Publish Package to DEV Orchestrator
         shell: pwsh
         run: |
-          ${{ github.workspace }}\scripts\UiPathDeploy.ps1 `
-          ${{ github.workspace }}\package `
+          .\Scripts\UiPathDeploy.ps1 `
+          .\package `
           ${{ env.ORCH_URL }} `
           ${{ env.ORCH_TENANT }} `
           -UserKey ${{ env.ORCH_USER_KEY }}
