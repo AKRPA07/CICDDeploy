@@ -5,51 +5,20 @@ on:
     branches:
       - NewProcess_DevBranch
 
-# Workflow-level environment variables
 env:
   PROJECT_NAME: CICDDeploy
   ORCH_FOLDER: NewProcess
   ORCH_URL: https://cloud.uipath.com/
   ORCH_TENANT: DefaultTenant
-  ORCH_CLIENT_ID: ${{ secrets.ORCH_CLIENT_ID_Dev }}
-  ORCH_USER_KEY: ${{ secrets.ORCH_USER_KEY_Dev }}
   ORCH_ACC_NAME: ABC
-  CLI_URL: https://uipath.visualstudio.com/Public.Feeds/_artifacts/feed/UiPath-Official/NuGet/UiPath.CLI.Windows/overview/25.10.6
 
 jobs:
-
-  print-details:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Print GitHub environment details
-        run: |
-          echo "HOME: $HOME"
-          echo "GITHUB_WORKFLOW: $GITHUB_WORKFLOW"
-          echo "GITHUB_ACTIONS: $GITHUB_ACTIONS"
-          echo "GITHUB_ACTOR: $GITHUB_ACTOR"
-          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
-          echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          echo "GITHUB_SHA: $GITHUB_SHA"
-          echo "GITHUB_REF: $GITHUB_REF"
-
-  cleaner:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clean workspace
-        run: |
-          echo "Cleaning workspace"
-          rm -rf *
-
-  build-uipath-nuget-package:
-    needs: cleaner
+  build-and-publish:
     runs-on: windows-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install .NET LTS (UiPath compatible)
       - name: Setup .NET 6
         uses: actions/setup-dotnet@v4
         with:
@@ -58,40 +27,11 @@ jobs:
       - name: Build UiPath NuGet Package
         shell: pwsh
         run: |
-          .\Scripts\UiPathPack.ps1 
-          .\project.json 
-          -destination_folder .\package
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Artifacts
-          path: |
-            package
-            Scripts
-
-  publish-uipath-nuget-package:
-    needs: build-uipath-nuget-package
-    runs-on: windows-latest
-
-    steps:
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: Artifacts
-
-      - name: Setup .NET 6
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 6.0.x
+          .\Scripts\UiPathPack.ps1 -project_json .\project.json -destination_folder .\package
 
       - name: Publish Package to DEV Orchestrator
         shell: pwsh
-       run: |
-          ${{ github.workspace }}\scripts\UiPathDeploy.ps1 `
-          ${{ github.workspace }}\package `
-          ${{ env.ORCH_URL }} `
-          ${{ env.ORCH_TENANT }} `
-          -UserKey ${{ env.ORCH_USER_KEY }}
-          ${{ env.ORCH_TENANT }} `
-          -UserKey ${{ env.ORCH_USER_KEY }}
+        env:
+          USER_KEY: ${{ secrets.ORCH_USER_KEY_Dev }}
+        run: |
+          .\Scripts\UiPathDeploy.ps1 -PackagePath .\package -OrchURL ${{ env.ORCH_URL }} -Tenant ${{ env.ORCH_TENANT }} -UserKey $env:USER_KEY
