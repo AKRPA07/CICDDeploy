@@ -8,7 +8,7 @@ on:
 env:
   PROJECT_NAME: CICDDeploy
   ORCH_FOLDER: NewProcess
-  ORCH_URL: https://cloud.uipath.com/
+  ORCH_URL: https://cloud.uipath.com
   ORCH_TENANT: DefaultTenant
   ORCH_ACC_NAME: ABC
 
@@ -27,22 +27,26 @@ jobs:
       - name: Build UiPath NuGet Package
         shell: pwsh
         run: |
-          # Matches your script's param names: -project_path and -destination_folder
+          # Positional 0: project path
+          # Named: destination and auto-versioning switch
           .\Scripts\UiPathPack.ps1 `
-            -project_path ".\project.json" `
-            -destination_folder ".\package"
+            ".\project.json" `
+            -destination_folder ".\package" `
+            -autoVersion
 
       - name: Publish Package to DEV Orchestrator
         shell: pwsh
         env:
-          USER_KEY_SECRET: ${{ secrets.ORCH_USER_KEY_Dev }}
+          UIPATH_USER_KEY: ${{ secrets.ORCH_USER_KEY_Dev }}
         run: |
-          # Mandatory Positional Args: <packages_path> <orchestrator_url> <orchestrator_tenant>
-          # Named Args: -UserKey <auth_token> -account_name <account_name>
+          # Mandatory Position 0: packages_path
+          # Mandatory Position 1: orchestrator_url
+          # Mandatory Position 2: orchestrator_tenant
+          # Named: UserKey, account_name, and folder
           .\Scripts\UiPathDeploy.ps1 `
             ".\package" `
             "${{ env.ORCH_URL }}" `
             "${{ env.ORCH_TENANT }}" `
-            -UserKey "$env:USER_KEY_SECRET" `
+            -UserKey "$env:UIPATH_USER_KEY" `
             -account_name "${{ env.ORCH_ACC_NAME }}" `
             -folder_organization_unit "${{ env.ORCH_FOLDER }}"
