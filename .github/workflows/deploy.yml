@@ -58,8 +58,8 @@ jobs:
       - name: Build UiPath NuGet Package
         shell: pwsh
         run: |
-          .\Scripts\UiPathPack.ps1 `
-          .\project.json `
+          .\Scripts\UiPathPack.ps1 
+          .\project.json 
           -destination_folder .\package
 
       - name: Upload Artifacts
@@ -87,9 +87,11 @@ jobs:
 
       - name: Publish Package to DEV Orchestrator
         shell: pwsh
-        run: |
-          .\Scripts\UiPathDeploy.ps1 `
-          .\package `
+       run: |
+          ${{ github.workspace }}\scripts\UiPathDeploy.ps1 `
+          ${{ github.workspace }}\package `
           ${{ env.ORCH_URL }} `
+          ${{ env.ORCH_TENANT }} `
+          -UserKey ${{ env.ORCH_USER_KEY }}
           ${{ env.ORCH_TENANT }} `
           -UserKey ${{ env.ORCH_USER_KEY }}
