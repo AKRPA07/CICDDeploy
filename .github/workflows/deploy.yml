@@ -29,9 +29,9 @@ jobs:
         run: |
           # Positional 0: project path
           # Named: destination and auto-versioning switch
-          .\Scripts\UiPathPack.ps1 `
-            ".\project.json" `
-            -destination_folder ".\package" `
+          .\Scripts\UiPathPack.ps1
+            .\project.json" `
+            -destination_folder ".\package
             -autoVersion
 
       - name: Publish Package to DEV Orchestrator
@@ -43,8 +43,8 @@ jobs:
           # Mandatory Position 1: orchestrator_url
           # Mandatory Position 2: orchestrator_tenant
           # Named: UserKey, account_name, and folder
-          .\Scripts\UiPathDeploy.ps1 `
-            ".\package" `
+          .\Scripts\UiPathDeploy.ps1 
+            .\package" `
             "${{ env.ORCH_URL }}" `
             "${{ env.ORCH_TENANT }}" `
             -UserKey "$env:UIPATH_USER_KEY" `
