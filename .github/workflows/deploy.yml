@@ -17,75 +17,53 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # ----------------------------------------
-      # Checkout Source
-      # ----------------------------------------
+      # ------------------------------------
+      # Checkout
+      # ------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ----------------------------------------
-      # Install .NET 6 (Required by UiPath CLI)
-      # ----------------------------------------
-      - name: Setup .NET 6
+      # ------------------------------------
+      # Install .NET 6
+      # ------------------------------------
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 6.0.x
 
-      # ----------------------------------------
-      # Verify Required Files Exist
-      # ----------------------------------------
-      - name: Verify project files
+      # ------------------------------------
+      # Verify Files
+      # ------------------------------------
+      - name: Verify files
         shell: pwsh
         run: |
-          Write-Host "Repository contents:"
           Get-ChildItem
 
-          if (!(Test-Path "project.json")) {
-            Write-Error "project.json not found"
-            exit 1
-          }
+          if (!(Test-Path "project.json")) { exit 1 }
+          if (!(Test-Path "Scripts\UiPathPack.ps1")) { exit 1 }
+          if (!(Test-Path "Scripts\UiPathDeploy.ps1")) { exit 1 }
 
-          if (!(Test-Path "Scripts\UiPathPack.ps1")) {
-            Write-Error "UiPathPack.ps1 not found"
-            exit 1
-          }
-
-          if (!(Test-Path "Scripts\UiPathDeploy.ps1")) {
-            Write-Error "UiPathDeploy.ps1 not found"
-            exit 1
-          }
-
-      # ----------------------------------------
-      # Build UiPath NuGet Package
-      # ----------------------------------------
+      # ------------------------------------
+      # Build Package  (IMPORTANT FIX)
+      # ------------------------------------
       - name: Build UiPath NuGet Package
         shell: pwsh
         run: |
-          $projectPath = Resolve-Path project.json
-          $packageRoot = Resolve-Path .
-
-          Write-Host "Project path: $projectPath"
-          Write-Host "Package output: $packageRoot\package"
-
-          .\Scripts\UiPathPack.ps1 `
-            $projectPath `
-            -destination_folder "$packageRoot\package" `
+          Scripts\UiPathPack.ps1 `
+            project.json `
+            -destination_folder package `
             -autoVersion
 
-      # ----------------------------------------
-      # Publish Package to DEV Orchestrator
-      # ----------------------------------------
-      - name: Publish Package to DEV Orchestrator
+      # ------------------------------------
+      # Deploy to DEV
+      # ------------------------------------
+      - name: Publish Package to DEV
         shell: pwsh
         env:
           UIPATH_USER_KEY: ${{ secrets.ORCH_USER_KEY_Dev }}
         run: |
-          $packagePath = Resolve-Path package
-
-          Write-Host "Deploying package from: $packagePath"
-
-          .\Scripts\UiPathDeploy.ps1 `
-            $packagePath `
+          Scripts\UiPathDeploy.ps1 `
+            package `
             ${{ env.ORCH_URL }} `
             ${{ env.ORCH_TENANT }} `
             -UserKey $env:UIPATH_USER_KEY `
