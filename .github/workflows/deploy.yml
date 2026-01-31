@@ -13,59 +13,36 @@ env:
   ORCH_ACC_NAME: ABC
 
 jobs:
+  # The cleaner and print-details jobs are removed as they are redundant or unnecessary for the core functionality
   build-and-publish:
     runs-on: windows-latest
-
     steps:
-      # ------------------------------------
-      # Checkout
-      # ------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ------------------------------------
-      # Install .NET 6
-      # ------------------------------------
-      - name: Setup .NET
+      - name: Setup .NET 6
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 6.0.x
 
-      # ------------------------------------
-      # Verify Files
-      # ------------------------------------
-      - name: Verify files
-        shell: pwsh
-        run: |
-          Get-ChildItem
-
-          if (!(Test-Path "project.json")) { exit 1 }
-          if (!(Test-Path "Scripts\UiPathPack.ps1")) { exit 1 }
-          if (!(Test-Path "Scripts\UiPathDeploy.ps1")) { exit 1 }
-
-      # ------------------------------------
-      # Build Package  (IMPORTANT FIX)
-      # ------------------------------------
       - name: Build UiPath NuGet Package
         shell: pwsh
         run: |
-          Scripts\UiPathPack.ps1 `
-            project.json `
-            -destination_folder package `
-            -autoVersion
+          # Fixes the 'incorrect syntax' and 'missing mandatory parameters' errors
+          # Passes the project path as a mandatory positional argument to the script
+          .\Scripts\UiPathPack.ps1 ".\project.json" -destination_folder ".\package" -autoVersion
 
-      # ------------------------------------
-      # Deploy to DEV
-      # ------------------------------------
-      - name: Publish Package to DEV
+      - name: Publish Package to DEV Orchestrator
         shell: pwsh
         env:
-          UIPATH_USER_KEY: ${{ secrets.ORCH_USER_KEY_Dev }}
+          # Passes the secret securely as a step-level environment variable
+          UIPATH_USER_KEY_SECRET: ${{ secrets.ORCH_USER_KEY_Dev }}
         run: |
-          Scripts\UiPathDeploy.ps1 `
-            package `
-            ${{ env.ORCH_URL }} `
-            ${{ env.ORCH_TENANT }} `
-            -UserKey $env:UIPATH_USER_KEY `
-            -account_name ${{ env.ORCH_ACC_NAME }} `
-            -folder_organization_unit ${{ env.ORCH_FOLDER }}
+          # Uses correct positional arguments and named parameters as defined in UiPathDeploy.ps1
+          .\Scripts\UiPathDeploy.ps1 `
+            ".\package" `
+            "${{ env.ORCH_URL }}" `
+            "${{ env.ORCH_TENANT }}" `
+            -UserKey "$env:UIPATH_USER_KEY_SECRET" `
+            -account_name "${{ env.ORCH_ACC_NAME }}" `
+            -folder_organization_unit "${{ env.ORCH_FOLDER }}"
