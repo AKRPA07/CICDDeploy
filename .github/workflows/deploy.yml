@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ------------------------------------
-      # Install .NET 6 (required by newer UiPath CLI versions)
+      # Install .NET 6 (sometimes needed for newer UiPath CLI)
       # ------------------------------------
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -39,8 +39,12 @@ jobs:
         run: |
           Write-Host "Current working directory:"
           Get-Location | Write-Host
+
           Write-Host "`nFiles in root:"
           Get-ChildItem -Force | Format-Table -AutoSize
+
+          Write-Host "`nSearching for project.json:"
+          Get-ChildItem -Recurse -Filter project.json | Select-Object FullName
 
           if (!(Test-Path "project.json")) {
             throw "project.json not found in repository root"
@@ -53,7 +57,7 @@ jobs:
           }
 
       # ------------------------------------
-      # Build Package – FIXED quoting
+      # Build Package – FIXED quoting & naming
       # ------------------------------------
       - name: Build UiPath NuGet Package
         shell: pwsh
@@ -62,20 +66,21 @@ jobs:
           Write-Host "Building package from: $PWD"
           Write-Host "project.json exists → $(Test-Path project.json)"
 
+          # Use NAMED parameters + quotes around values
           ./Scripts/UiPathPack.ps1 `
-            project.json `
-            -destination_folder package `
+            -project_path "project.json" `
+            -destination_folder "package" `
             -autoVersion
 
           Write-Host "`nResulting package contents:"
-          if (Test-Path package) {
-            Get-ChildItem package -Recurse | Format-Table -AutoSize
+          if (Test-Path "package") {
+            Get-ChildItem "package" -Recurse | Format-Table -AutoSize
           } else {
             Write-Warning "No 'package' folder found after build"
           }
 
       # ------------------------------------
-      # Deploy to DEV – FIXED quoting
+      # Deploy to DEV – FIXED quoting & naming
       # ------------------------------------
       - name: Publish Package to DEV
         shell: pwsh
@@ -84,15 +89,16 @@ jobs:
         working-directory: ${{ github.workspace }}
         run: |
           Write-Host "Deploying from folder: $PWD\package"
-
-          if (!(Test-Path package)) {
+          
+          if (!(Test-Path "package")) {
             throw "Package folder not found – build step probably failed"
           }
 
+          # Use NAMED parameters + quotes
           ./Scripts/UiPathDeploy.ps1 `
-            package `
-            "${{ env.ORCH_URL }}" `
-            "${{ env.ORCH_TENANT }}" `
+            -packages_path "package" `
+            -orchestrator_url "${{ env.ORCH_URL }}" `
+            -orchestrator_tenant "${{ env.ORCH_TENANT }}" `
             -UserKey $env:UIPATH_USER_KEY `
             -account_name "${{ env.ORCH_ACC_NAME }}" `
             -folder_organization_unit "${{ env.ORCH_FOLDER }}"
