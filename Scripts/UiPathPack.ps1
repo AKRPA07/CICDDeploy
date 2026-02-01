@@ -1,303 +1,189 @@
 <#
-.SYNOPSIS 
-    Pack project into a NuGet package
-
-.DESCRIPTION 
-    This script is to pack a project into a NuGet package files (*.nupkg).
-
-.PARAMETER project_path 
-     Required. Path to a project.json file or a folder containing project.json files.
-
-.PARAMETER destination_folder 
-     Required. Destination folder.
-
-.PARAMETER libraryOrchestratorUrl 
-    (Optional, useful only for libraries) The Orchestrator URL.
-
-.PARAMETER libraryOrchestratorTenant 
-    (Optional, useful only for libraries) The Orchestrator tenant.
-
-.PARAMETER libraryOrchestratorAccountForApp 
-    (Optional, useful only for libraries) The Orchestrator CloudRPA account name. Must be used together with id, secret and scope(s) for external application.
-
-.PARAMETER libraryOrchestratorApplicationId 
-    (Optional, useful only for libraries) The external application id. Must be used together with account, secret and scope(s) for external application.
-
-.PARAMETER libraryOrchestratorApplicationSecret 
-    (Optional, useful only for libraries) The external application secret. Must be used together with account, id and scope(s) for external application.
-
-.PARAMETER libraryOrchestratorApplicationScope 
-    (Optional, useful only for libraries) The space-separated list of application scopes. Must be used together with account, id and secret for external application.
-
-.PARAMETER libraryOrchestratorUsername
-    (Optional, useful only for libraries) The Orchestrator password used for authentication. Must be used together with the username.
-
-.PARAMETER libraryOrchestratorPassword
-    (Optional, useful only for libraries) The Orchestrator username used for authentication. Must be used together with the password.
-
-.PARAMETER libraryOrchestratorUserKey
-    (Optional, useful only for libraries) The Orchestrator OAuth2 refresh token used for authentication. Must be used together with the account name and client id.
-
-.PARAMETER libraryOrchestratorAccountName
-    (Optional, useful only for libraries) The Orchestrator CloudRPA account name. Must be used together with the refresh token and client id.
-
-.PARAMETER libraryOrchestratorFolder
-    (Optional, useful only for libraries) The Orchestrator folder (organization unit).
-
-.PARAMETER version
-    Package version.
-
-.PARAMETER autoVersion
-    Auto-generate package version.
-
-.PARAMETER outputType
-    Force the output to a specific type. <Process|Library|Tests|Objects>
-
-.PARAMETER language
-    The orchestrator language.
-
-.PARAMETER disableTelemetry
-    Disable telemetry data.
-    
-.PARAMETER uipathCliFilePath
-    if not provided, the script will auto download the cli from uipath public feed. the script was testing on version 22.10.8432.18709. if provided, it is recommended to have cli version 22.10.8432.18709 
-
-.EXAMPLE
-SYNTAX:
-    .\UiPathPack.ps1 <project_path> -destination_folder <destination_folder> [-version <version>] [-autoVersion] [--outputType <Process|Library|Tests|Objects>] [--libraryOrchestratorUrl <orchestrator_url> --libraryOrchestratorTenant <orchestrator_tenant>] [--libraryOrchestratorUsername <orchestrator_user> --libraryOrchestratorPassword <orchestrator_pass>] [--libraryOrchestratorUserKey <UserKey> --libraryOrchestratorAccountName <account_name>] [--libraryOrchestratorFolder <folder>] [-language <language>]
-
-  Examples:
-    package pack "C:\UiPath\Project\project.json" -destination_folder "C:\UiPath\Package"
-    package pack "C:\UiPath\Project\project.json" -destination_folder "C:\UiPath\Package" -version 1.0.6820.22047
-    package pack "C:\UiPath\Project\project.json" -destination_folder "C:\UiPath\Package" -autoVersion
-    package pack "C:\UiPath\Project" -destination_folder "C:\UiPath\Package"
-    package pack "C:\UiPath\Project\project.json" -destination_folder "C:\UiPath\Package" --outputType Tests -language en-US
-
-    .\UiPathPack.ps1 <project_path> -o <destination_folder> [-version <version>] [-autoVersion] [-outputType <Process|Library|Tests|Objects>] [-libraryOrchestratorUrl <orchestrator_url> -libraryOrchestratorTenant <orchestrator_tenant>] [-libraryOrchestratorUsername <orchestrator_user> -libraryOrchestratorPassword <orchestrator_pass>] [-libraryOrchestratorUserKey <auth_token> -libraryOrchestratorAccountName <account_name>] [-libraryOrchestratorAccountForApp <ExternaAppAccount> -libraryOrchestratorApplicationId <AppID> -libraryOrchestratorApplicationSecret <AppSecret> -libraryOrchestratorApplicationScope <AppScope>] 
-    [-libraryOrchestratorFolder <folder>] [-language <language>]
-
-  Examples:
-    .\UiPathPack.ps1 "C:\UiPath\Project\project.json" --destination_folder "C:\UiPath\Package"
-    .\UiPathPack.ps1 "C:\UiPath\Project\project.json" -destination_folder "C:\UiPath\Package" -version 1.0.6820.22047
-    .\UiPathPack.ps1 "C:\UiPath\Project\project.json" -destination_folder "C:\UiPath\Package" -autoVersion
-    .\UiPathPack.ps1 "C:\UiPath\Project" -destination_folder "C:\UiPath\Package"
-    .\UiPathPack.ps1 "C:\UiPath\Project\project.json" -destination_folder "C:\UiPath\Package" -outputType Tests -language en-US
+.SYNOPSIS
+    Pack UiPath project into a NuGet package (*.nupkg)
+.DESCRIPTION
+    Uses UiPath CLI (auto-downloaded from GitHub) to package the project.
 #>
+
 Param (
+    [Parameter(Mandatory=$true, Position=0)]
+    [string]$project_path = "",
 
-    #Required
-    [Parameter(Mandatory=$true, Position = 0)]
-	[string] $project_path = "", # Required. Path to a project.json file or a folder containing project.json files.
-    [string] $destination_folder = "", #Required. Destination folder.
-	[string] $libraryOrchestratorUrl = "", #Required. The URL of the Orchestrator instance.
-	[string] $libraryOrchestratorTenant = "", #(Optional, useful only for libraries) The Orchestrator tenant.
+    [Parameter(Mandatory=$true)]
+    [string]$destination_folder = "",
 
-    #Extranal Apps (OAuth) (Cloud/OnPrem)
-    [string] $libraryOrchestratorAccountForApp = "", #(Optional, useful only for libraries) The Orchestrator CloudRPA account name. Must be used together with id, secret and scope(s) for external application.
-    [string] $libraryOrchestratorApplicationId = "", #(Optional, useful only for libraries) The external application id. Must be used together with account, secret and scope(s) for external application.
-    [string] $libraryOrchestratorApplicationSecret = "", #(Optional, useful only for libraries) The external application secret. Must be used together with account, id and scope(s) for external application.
-    [string] $libraryOrchestratorApplicationScope = "", #(Optional, useful only for libraries) The space-separated list of application scopes. Must be used together with account, id and secret for external application.
-    
-    #cloud API Access - Required
-    [string] $libraryOrchestratorAccountName = "", #(Optional, useful only for libraries) The Orchestrator URL.
-	[string] $libraryOrchestratorUserKey = "", #Required. The Orchestrator OAuth2 refresh token used for authentication. Must be used together with the account name and client id.
-    
-    #On prem - Required
-    [string] $libraryOrchestratorUsername = "", #Required. The Orchestrator username used for authentication. Must be used together with the libraryOrchestratorPassword.
-	[string] $libraryOrchestratorPassword = "", #Required. The Orchestrator password used for authentication. Must be used together with the libraryOrchestratorUsername.
-	
-	[string] $libraryOrchestratorFolder = "", #Optional, useful only for libraries) The Orchestrator folder (organization unit).
-	[string] $language = "", #The orchestrator language.  
-    [string] $version = "", #Package version.
-    [switch] $autoVersion, #Auto-generate package version.
-    [string] $outputType = "", #Force the output to a specific type.  
-    [string] $disableTelemetry = "", #Disable telemetry data.
-    [string] $uipathCliFilePath = "", #if not provided, the script will auto download the cli from uipath public feed. the script was testing on version 23.10.8753.32995.
-    [string] $SpecificCLIVersion = "", #CLI version to auto download if uipathCliFilePath not provided
-    [Parameter(ValueFromRemainingArguments = $true)]
-    $remainingArgs
+    # Library publishing (optional)
+    [string]$libraryOrchestratorUrl = "",
+    [string]$libraryOrchestratorTenant = "",
+    [string]$libraryOrchestratorAccountForApp = "",
+    [string]$libraryOrchestratorApplicationId = "",
+    [string]$libraryOrchestratorApplicationSecret = "",
+    [string]$libraryOrchestratorApplicationScope = "",
+    [string]$libraryOrchestratorUsername = "",
+    [string]$libraryOrchestratorPassword = "",
+    [string]$libraryOrchestratorUserKey = "",
+    [string]$libraryOrchestratorAccountName = "",
+    [string]$libraryOrchestratorFolder = "",
 
-    
+    [string]$version = "",
+    [switch]$autoVersion,
+    [string]$outputType = "",
+    [string]$language = "",
+    [string]$disableTelemetry = "",
 
+    [string]$uipathCliFilePath = "",
+    [string]$SpecificCLIVersion = ""
 )
-#Log function
-function WriteLog
-{
-	Param ($message, [switch] $err)
-	
-	$now = Get-Date -Format "G"
-	$line = "$now`t$message"
-	$line | Add-Content $debugLog -Encoding UTF8
-	if ($err)
-	{
-		Write-Host $line -ForegroundColor red
-	} else {
-		Write-Host $line
-	}
+
+# ──────────────────────────────────────────────────────────────
+# Logging function
+# ──────────────────────────────────────────────────────────────
+function WriteLog {
+    param ([string]$message, [switch]$err)
+    $now = Get-Date -Format "G"
+    $line = "$now`t$message"
+    Add-Content -Path $debugLog -Value $line -Encoding UTF8
+    if ($err) { Write-Host $line -ForegroundColor Red } else { Write-Host $line }
 }
 
-#Running Path
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-#log file
-$debugLog = "$scriptPath\orchestrator-package-pack.log"
+$debugLog   = "$scriptPath\orchestrator-package-pack.log"
 
-#Validate provided cli folder (if any)
-if($uipathCliFilePath -ne ""){
-    $uipathCLI = "$uipathCliFilePath"
-    if (-not(Test-Path -Path $uipathCLI -PathType Leaf)) {
-        WriteLog "UiPath cli file path provided does not exist in the provided path $uipathCliFilePath.`r`nDo not provide uipathCliFilePath paramter if you want the script to auto download the cli from UiPath Public feed"
-        exit 1
-    }
-}else{
-    
-    if($SpecificCLIVersion -ne ""){
-        $cliVersion = $SpecificCLIVersion;
-    }
-    else{
-        $cliVersion = "23.10.8753.32995"; #CLI Version (Script was tested on this latest version at the time)
-    }
-    #Verifying UiPath CLI installation
-    $uipathCLI = "$scriptPath\uipathcli\$cliVersion\tools\uipcli.exe"
-    if (-not(Test-Path -Path $uipathCLI -PathType Leaf)) {
-        WriteLog "UiPath CLI does not exist in this folder. Attempting to download it..."
+# ──────────────────────────────────────────────────────────────
+# CLI Setup – prefer GitHub releases (more reliable)
+# ──────────────────────────────────────────────────────────────
+if ($uipathCliFilePath -and (Test-Path $uipathCliFilePath -PathType Leaf)) {
+    $uipathCLI = $uipathCliFilePath
+    WriteLog "Using provided CLI: $uipathCLI"
+} else {
+    $cliVersion = if ($SpecificCLIVersion) { $SpecificCLIVersion } else { "v2.0.50" }  # update to latest from https://github.com/UiPath/uipathcli/releases
+    $cliFolder  = "$scriptPath\uipathcli\$cliVersion"
+    $uipathCLI  = "$cliFolder\uipcli.exe"
+
+    if (-not (Test-Path $uipathCLI -PathType Leaf)) {
+        WriteLog "Downloading UiPath CLI from GitHub ($cliVersion)..."
+        New-Item -Path $cliFolder -ItemType Directory -Force | Out-Null
+        $zipPath = "$cliFolder\cli.zip"
+        $zipUrl  = "https://github.com/UiPath/uipathcli/releases/download/$cliVersion/uipathcli-windows-amd64.zip"
+
         try {
-            if (-not(Test-Path -Path "$scriptPath\uipathcli\$cliVersion" -PathType Leaf)){
-                New-Item -Path "$scriptPath\uipathcli\$cliVersion" -ItemType "directory" -Force | Out-Null
+            Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+            Expand-Archive -Path $zipPath -DestinationPath $cliFolder -Force
+            Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+
+            # Debug: show what was extracted
+            WriteLog "Extracted files:"
+            Get-ChildItem -Path $cliFolder -Recurse -File | ForEach-Object {
+                WriteLog "  $($_.FullName)  (size: $($_.Length) bytes)"
             }
-            #Download UiPath CLI
-            #Invoke-WebRequest "https://www.myget.org/F/uipath-dev/api/v2/package/UiPath.CLI/$cliVersion" -OutFile "$scriptPath\\uipathcli\\$cliVersion\\cli.zip";
-            Invoke-WebRequest "https://uipath.pkgs.visualstudio.com/Public.Feeds/_apis/packaging/feeds/1c781268-d43d-45ab-9dfc-0151a1c740b7/nuget/packages/UiPath.CLI.Windows/versions/$cliVersion/content" -OutFile "$scriptPath\\uipathcli\\$cliVersion\\cli.zip";
-            Expand-Archive -LiteralPath "$scriptPath\\uipathcli\\$cliVersion\\cli.zip" -DestinationPath "$scriptPath\\uipathcli\\$cliVersion";
-            WriteLog "UiPath CLI is downloaded and extracted in folder $scriptPath\uipathcli\\$cliVersion"
-            if (-not(Test-Path -Path $uipathCLI -PathType Leaf)) {
-                WriteLog "Unable to locate uipath cli after it is downloaded."
+
+            # Auto-detect exe (in case it's not directly in root)
+            $foundExe = Get-ChildItem -Path $cliFolder -Recurse -File -Filter "uipcli.exe" -ErrorAction SilentlyContinue |
+                        Select-Object -First 1 -ExpandProperty FullName
+
+            if ($foundExe) {
+                $uipathCLI = $foundExe
+                WriteLog "uipcli.exe detected at: $uipathCLI"
+            } else {
+                WriteLog "ERROR: uipcli.exe not found after extraction!" -err
                 exit 1
             }
         }
         catch {
-            WriteLog ("Error Occured : " + $_.Exception.Message) -err $_.Exception
+            WriteLog "Download or extraction failed: $($_.Exception.Message)" -err
             exit 1
         }
-        
+    } else {
+        WriteLog "Using existing CLI: $uipathCLI"
     }
 }
-WriteLog "-----------------------------------------------------------------------------"
-WriteLog "uipcli location :   $uipathCLI"
-#END Verifying UiPath CLI installation
 
-
-#Building uipath cli paramters
-$ParamList = New-Object 'Collections.Generic.List[string]'
-
-if($project_path -eq "" -or $destination_folder -eq "")
-{
-    WriteLog "Fill the required paramters (project_path, destination_folder)"
+# ──────────────────────────────────────────────────────────────
+# Validate & normalize project path
+# ──────────────────────────────────────────────────────────────
+if (-not $project_path -or -not $destination_folder) {
+    WriteLog "Missing required parameters: project_path and destination_folder" -err
     exit 1
 }
+
+$resolvedProject = Resolve-Path $project_path -ErrorAction SilentlyContinue
+if (-not $resolvedProject) {
+    WriteLog "Invalid project_path: $project_path" -err
+    exit 1
+}
+
+# If folder → look for project.json inside
+if ((Get-Item $resolvedProject).PSIsContainer) {
+    $projectJson = Join-Path $resolvedProject "project.json"
+    if (Test-Path $projectJson) {
+        $resolvedProject = $projectJson
+    } else {
+        WriteLog "No project.json found in folder: $resolvedProject" -err
+        exit 1
+    }
+}
+
+# Ensure output folder exists
+New-Item -Path $destination_folder -ItemType Directory -Force | Out-Null
+
+WriteLog "-----------------------------------------------------------------------------"
+WriteLog "uipcli location : $uipathCLI"
+WriteLog "project path    : $resolvedProject"
+WriteLog "output folder   : $destination_folder"
+
+# ──────────────────────────────────────────────────────────────
+# Build arguments – NO manual quotes!
+# ──────────────────────────────────────────────────────────────
+$ParamList = New-Object 'System.Collections.Generic.List[string]'
+
 $ParamList.Add("package")
 $ParamList.Add("pack")
-$ParamList.Add("`"$project_path`"")
+$ParamList.Add($resolvedProject)
 $ParamList.Add("--output")
-$ParamList.Add("`"$destination_folder`"")
+$ParamList.Add($destination_folder)
 
-if($libraryOrchestratorUrl -ne ""){
-    $ParamList.Add("--libraryOrchestratorUrl")
-    $ParamList.Add($libraryOrchestratorUrl)
-}
-if($libraryOrchestratorTenant -ne ""){
-    $ParamList.Add("--libraryOrchestratorTenant")
-    $ParamList.Add($libraryOrchestratorTenant)
-}
-if($libraryOrchestratorAccountName -ne ""){
-    $ParamList.Add("--libraryOrchestratorAccountName")
-    $ParamList.Add($libraryOrchestratorAccountName)
-}
-if($libraryOrchestratorUserKey -ne ""){
-    $ParamList.Add("--libraryOrchestratorAuthToken")
-    $ParamList.Add($libraryOrchestratorUserKey)
-}
-if($libraryOrchestratorUsername -ne ""){
-    $ParamList.Add("--libraryOrchestratorUsername")
-    $ParamList.Add($libraryOrchestratorUsername)
-}
-if($libraryOrchestratorPassword -ne ""){
-    $ParamList.Add("--libraryOrchestratorPassword")
-    $ParamList.Add($libraryOrchestratorPassword)
-}
-if($libraryOrchestratorAccountForApp -ne ""){
-    $ParamList.Add("--libraryOrchestratorAccountForApp")
-    $ParamList.Add($libraryOrchestratorAccountForApp)
-}
-if($libraryOrchestratorApplicationId -ne ""){
-    $ParamList.Add("--libraryOrchestratorApplicationId")
-    $ParamList.Add($libraryOrchestratorApplicationId)
-}
-if($libraryOrchestratorApplicationSecret -ne ""){
-    $ParamList.Add("--libraryOrchestratorApplicationSecret")
-    $ParamList.Add($libraryOrchestratorApplicationSecret)
-}
-if($libraryOrchestratorApplicationScope -ne ""){
-    $ParamList.Add("--libraryOrchestratorApplicationScope")
-    $ParamList.Add("`"$libraryOrchestratorApplicationScope`"")
-}
-if($libraryOrchestratorFolder -ne ""){
-    $ParamList.Add("--libraryOrchestratorFolder")
-    $ParamList.Add("`"$libraryOrchestratorFolder`"")
-}
-if($language -ne ""){
-    $ParamList.Add("--language")
-    $ParamList.Add($language)
-}
-if($version -ne ""){
-    $ParamList.Add("--version")
-    $ParamList.Add($version)
-}
-if($PSBoundParameters.ContainsKey('autoVersion')) {
-    $ParamList.Add("--autoVersion")
-}
-if($outputType -ne ""){
-    $ParamList.Add("--outputType")
-    $ParamList.Add($outputType)
+if ($libraryOrchestratorUrl)              { $ParamList.AddRange(@("--libraryOrchestratorUrl",              $libraryOrchestratorUrl)) }
+if ($libraryOrchestratorTenant)           { $ParamList.AddRange(@("--libraryOrchestratorTenant",           $libraryOrchestratorTenant)) }
+if ($libraryOrchestratorAccountForApp)    { $ParamList.AddRange(@("--libraryOrchestratorAccountForApp",    $libraryOrchestratorAccountForApp)) }
+if ($libraryOrchestratorApplicationId)    { $ParamList.AddRange(@("--libraryOrchestratorApplicationId",    $libraryOrchestratorApplicationId)) }
+if ($libraryOrchestratorApplicationSecret){ $ParamList.AddRange(@("--libraryOrchestratorApplicationSecret",$libraryOrchestratorApplicationSecret)) }
+if ($libraryOrchestratorApplicationScope) { $ParamList.AddRange(@("--libraryOrchestratorApplicationScope", $libraryOrchestratorApplicationScope)) }
+if ($libraryOrchestratorUsername)         { $ParamList.AddRange(@("--libraryOrchestratorUsername",         $libraryOrchestratorUsername)) }
+if ($libraryOrchestratorPassword)         { $ParamList.AddRange(@("--libraryOrchestratorPassword",         $libraryOrchestratorPassword)) }
+if ($libraryOrchestratorUserKey)          { $ParamList.AddRange(@("--libraryOrchestratorAuthToken",        $libraryOrchestratorUserKey)) }
+if ($libraryOrchestratorAccountName)      { $ParamList.AddRange(@("--libraryOrchestratorAccountName",      $libraryOrchestratorAccountName)) }
+if ($libraryOrchestratorFolder)           { $ParamList.AddRange(@("--libraryOrchestratorFolder",           $libraryOrchestratorFolder)) }
+if ($language)                            { $ParamList.AddRange(@("--language",                            $language)) }
+if ($version)                             { $ParamList.AddRange(@("--version",                             $version)) }
+if ($autoVersion.IsPresent)               { $ParamList.Add("--autoVersion") }
+if ($outputType)                          { $ParamList.AddRange(@("--outputType",                          $outputType)) }
+if ($disableTelemetry)                    { $ParamList.AddRange(@("--disableTelemetry",                    $disableTelemetry)) }
+
+# ──────────────────────────────────────────────────────────────
+# Mask secrets for log only
+# ──────────────────────────────────────────────────────────────
+$ParamMask = $ParamList.ToArray().PSObject.Copy()
+
+$secrets = @("--libraryOrchestratorPassword", "--libraryOrchestratorAuthToken", "--libraryOrchestratorApplicationSecret")
+for ($i = 0; $i -lt $ParamMask.Count; $i++) {
+    if ($secrets -contains $ParamMask[$i]) {
+        $ParamMask[$i+1] = "***************"
+        $i++  # skip value
+    }
 }
 
-if($disableTelemetry -ne ""){
-    $ParamList.Add("--disableTelemetry")
-    $ParamList.Add($disableTelemetry)
-}
-
-
-#region Mask sensitive info before logging 
-$ParamMask = New-Object 'Collections.Generic.List[string]'
-$ParamMask.AddRange($ParamList)
-$secretIndex = $ParamMask.IndexOf("--libraryOrchestratorPassword");
-if($secretIndex -ge 0){
-    $ParamMask[$secretIndex + 1] = ("*" * 15)
-}
-$secretIndex = $ParamMask.IndexOf("--libraryOrchestratorAuthToken");
-if($secretIndex -ge 0){
-    $ParamMask[$secretIndex + 1] = $libraryOrchestratorUserKey.Substring(0, [Math]::Min(4, $libraryOrchestratorUserKey.Length)) + ("*" * 15)
-}
-$secretIndex = $ParamMask.IndexOf("--libraryOrchestratorApplicationId");
-if($secretIndex -ge 0){
-    $ParamMask[$secretIndex + 1] = $libraryOrchestratorApplicationId.Substring(0, [Math]::Min($libraryOrchestratorApplicationId.Length, 4)) + ("*" * 15)
-}
-$secretIndex = $ParamMask.IndexOf("--libraryOrchestratorApplicationSecret");
-if($secretIndex -ge 0){
-    $ParamMask[$secretIndex + 1] = ("*" * 15)
-}
-#endregion  Mask sensitive info before logging 
-
-#log cli call with parameters
-WriteLog "Executing $uipathCLI $ParamMask"
+WriteLog "Executing: $uipathCLI $($ParamMask -join ' ')"
 WriteLog "-----------------------------------------------------------------------------"
-#call uipath cli 
-& "$uipathCLI" $ParamList.ToArray()
 
-if($LASTEXITCODE -eq 0)
-{
+# ──────────────────────────────────────────────────────────────
+# Execute
+# ──────────────────────────────────────────────────────────────
+& $uipathCLI $ParamList.ToArray()
+
+if ($LASTEXITCODE -eq 0) {
     WriteLog "Done! Package(s) destination folder is : $destination_folder"
     Exit 0
-}else {
-    WriteLog "Unable to Pack project. Exit code $LASTEXITCODE"
+} else {
+    WriteLog "Unable to Pack project. Exit code $LASTEXITCODE" -err
     Exit 1
 }
